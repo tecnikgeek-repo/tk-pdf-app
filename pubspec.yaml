@@ -1,0 +1,48 @@
+name: tkpdf
+description: "tk-pdf per Android e iPhone: lettore ed editor PDF, software libero AGPL-3.0."
+publish_to: 'none'
+version: 1.7.0+17
+
+environment:
+  sdk: ^3.13.4
+
+dependencies:
+  flutter_localizations:
+    sdk: flutter
+  cunning_document_scanner: ^3.0.3
+  file_picker: ^13.1.0
+  flutter:
+    sdk: flutter
+  google_mlkit_text_recognition: ^0.17.1
+  http: ^1.6.0
+  image: ^4.10.1
+  image_picker: ^1.2.3
+  open_filex: ^4.7.0
+  package_info_plus: ^10.2.2
+  path_provider: ^2.1.6
+  pdfrx: ^2.6.5
+  share_plus: ^13.3.1
+  shared_preferences: ^2.5.5
+  syncfusion_flutter_pdf: ^35.1.37
+  url_launcher: ^6.3.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icona.png
+    - assets/licenze/COPYING-AGPL-3.0.txt
+
+# icone dell'app (generate da assets/icona.png con: dart run flutter_launcher_icons)
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/icona.png
+  adaptive_icon_background: "#0F172A"
+  adaptive_icon_foreground: assets/icona-adattiva.png
+  remove_alpha_ios: true
