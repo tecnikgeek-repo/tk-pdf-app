@@ -92,7 +92,7 @@ void main() {
     await t.drag(find.byType(Scrollable).first, const Offset(0, -6000));
     await t.pump(const Duration(milliseconds: 300));
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/licenza-testo-dentro.png'));
-    await t.pageBack();
+    await t.tap(find.byIcon(Icons.arrow_back).last); // freccia della testata delle app
     await t.pump(const Duration(milliseconds: 600));
 
     await apri('Licenze dei componenti');
