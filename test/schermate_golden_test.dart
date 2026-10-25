@@ -71,6 +71,34 @@ void main() {
     await _mostra(t, const SchermataLicenze(versione: '1.7.0'));
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/licenze.png'));
 
+    // le due pagine che si aprono da Licenze: testo dell'AGPL e componenti (qui con due librerie finte)
+    LicenseRegistry.addLicense(() async* {
+      yield const LicenseEntryWithLineBreaks(['pdfrx'], 'MIT License\n\nCopyright (c) 2026 Esempio\n\n'
+          'Permission is hereby granted, free of charge, to any person obtaining a copy\nof this software.');
+      yield const LicenseEntryWithLineBreaks(['shared_preferences'], 'BSD 3-Clause License\n\nRedistribution and use '
+          'in source and binary forms, with or without\nmodification, are permitted.');
+    });
+    Future<void> apri(String testo) async {
+      await t.tap(find.text(testo));
+      for (var i = 0; i < 4; i++) {
+        await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+        await t.pump(const Duration(milliseconds: 300));
+      }
+    }
+
+    await apri('Leggi la licenza AGPL-3.0');
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/licenza-testo.png'));
+    await t.drag(find.byType(Scrollable).first, const Offset(0, -6000));
+    await t.pump(const Duration(milliseconds: 300));
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/licenza-testo-dentro.png'));
+    await t.pageBack();
+    await t.pump(const Duration(milliseconds: 600));
+
+    await apri('Licenze dei componenti');
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/componenti.png'));
+    await apri('pdfrx');
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/componenti-testo.png'));
+
     await t.pumpWidget(const SizedBox());
   });
 }
