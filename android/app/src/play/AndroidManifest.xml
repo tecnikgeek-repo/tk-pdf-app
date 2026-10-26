@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Solo nella versione per il Play Store (TK_PLAY=1, vedi build.gradle.kts): gli aggiornamenti li fa Play,
+     quindi l'app non deve poter installare APK (Play lo permette solo a pochi tipi di app). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove" />
+</manifest>
