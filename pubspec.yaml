@@ -1,7 +1,7 @@
 name: tkpdf
 description: "tk-pdf per Android e iPhone: lettore ed editor PDF, software libero AGPL-3.0."
 publish_to: 'none'
-version: 1.7.4+21
+version: 1.7.5+22
 
 environment:
   sdk: ^3.13.4
