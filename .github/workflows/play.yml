@@ -55,6 +55,8 @@ jobs:
           unzip -p "$AAB" base/manifest/AndroidManifest.xml > manifest.pb
           if grep -q REQUEST_INSTALL_PACKAGES manifest.pb; then echo "::error::Il permesso di installare APK è ancora nel pacchetto"; exit 1; fi
           echo "Permesso di installare APK assente"
+          if grep -qE 'READ_MEDIA_(IMAGES|VIDEO|AUDIO)|READ_EXTERNAL_STORAGE' manifest.pb; then echo "::error::Permessi su foto e video ancora nel pacchetto (Play li vuole solo per le gallerie)"; exit 1; fi
+          echo "Permessi su foto, video e audio assenti"
           VERSIONE=$(grep -m1 '^version:' pubspec.yaml | sed 's/version: //' | tr -d ' \r')
           mkdir -p dist && cp "$AAB" "dist/tk-pdf-${VERSIONE%%+*}-play.aab"
       - uses: actions/upload-artifact@v4
