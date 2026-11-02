@@ -37,7 +37,7 @@ jobs:
 
       - name: Configurazione del progetto
         run: |
-          flutter build ios --config-only --release --dart-define=TK_PLAY=true
+          flutter build ios --config-only --no-codesign --release --dart-define=TK_PLAY=true
           if [ -f ios/Podfile ]; then (cd ios && pod install --repo-update); fi
 
       - name: Archivio firmato
