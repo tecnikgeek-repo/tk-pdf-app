@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   testflight:
-    runs-on: macos-26
+    runs-on: macos-26-intel
     timeout-minutes: 60
     env:
       SQUADRA: YQW3TEVL59
