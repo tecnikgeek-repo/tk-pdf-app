@@ -66,5 +66,15 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>tk-pdf usa la fotocamera per acquisire i documenti e trasformarli in PDF.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>tk-pdf apre le foto che scegli per inserirle nei tuoi PDF.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>tk-pdf salva nella libreria le immagini che esporti.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>tk-pdf non registra audio: il permesso serve solo se un video viene scelto dalla fotocamera.</string>
 </dict>
 </plist>
