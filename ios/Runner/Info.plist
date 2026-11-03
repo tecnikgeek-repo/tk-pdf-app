@@ -5,7 +5,7 @@
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<string>it</string>
 	<key>CFBundleDisplayName</key>
 	<string>tk-pdf</string>
 	<key>CFBundleExecutable</key>
@@ -76,5 +76,9 @@
 	<string>tk-pdf salva nella libreria le immagini che esporti.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>tk-pdf non registra audio: il permesso serve solo se un video viene scelto dalla fotocamera.</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>it</string>
+	</array>
 </dict>
 </plist>
