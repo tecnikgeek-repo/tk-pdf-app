@@ -210,12 +210,38 @@ class _SchermataHomeState extends State<SchermataHome> {
   }
 
   Future<void> _scansiona() async {
+    // iPhone: il menu lo disegna l'app, con quello del plugin l'app si chiudeva
+    final sorgente = Platform.isIOS ? await _sceltaSorgente() : ScannerSource.cameraAndGallery;
+    if (sorgente == null) return;
     final immagini = await _protetto(() => CunningDocumentScanner.getPictures(
           noOfPages: 20,
-          scannerSource: ScannerSource.cameraAndGallery,
+          scannerSource: sorgente,
         ));
     if (immagini == null || immagini.isEmpty) return;
     await _ritagliaECrea(immagini, 'Scansione');
+  }
+
+  Future<ScannerSource?> _sceltaSorgente() {
+    return showModalBottomSheet<ScannerSource>(
+      context: context,
+      builder: (contesto) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Fotocamera'),
+              onTap: () => Navigator.pop(contesto, ScannerSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Galleria'),
+              onTap: () => Navigator.pop(contesto, ScannerSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _daFoto() async {
