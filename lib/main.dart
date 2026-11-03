@@ -38,6 +38,12 @@ class AppTkPdf extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MaterialApp(
         title: 'tk-pdf',
+        // iPhone: la tastiera non ha un tasto per chiuderla, si chiude toccando fuori dal campo
+        builder: (_, figlio) => GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: figlio,
+        ),
         debugShowCheckedModeBanner: false,
         theme: temaKit(),
         // menu del testo («Incolla», «Copia»), calendari e messaggi di sistema in italiano
