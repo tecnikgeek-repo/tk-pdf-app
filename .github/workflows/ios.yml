@@ -25,6 +25,8 @@ jobs:
           flutter-version: '3.47.5'
           channel: stable
           cache: true
+      # tutti i plugin con CocoaPods: con Swift Package il plugin dello scanner cerca le sue risorse in un pacchetto a parte
+      - run: flutter config --no-enable-swift-package-manager
       - run: flutter pub get
 
       - name: Chiave API dal segreto
@@ -66,6 +68,7 @@ jobs:
             -authenticationKeyPath "$RUNNER_TEMP/chiave.p8" -authenticationKeyID "$KEY_ID" -authenticationKeyIssuerID "$ISSUER" \
             DEVELOPMENT_TEAM="$SQUADRA" CODE_SIGN_STYLE=Automatic archive 2>&1 | tail -40
           test -d "$RUNNER_TEMP/app.xcarchive"
+          ls "$RUNNER_TEMP/app.xcarchive/Products/Applications/Runner.app" | grep -E 'bundle|lproj' | head -20 || true
 
       - name: Caricamento su TestFlight
         env:
