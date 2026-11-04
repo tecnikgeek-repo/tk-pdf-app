@@ -85,7 +85,12 @@ void main() {
       foto.add(f.path);
     }
     final passi = <String>[];
-    final percorso = await doc.pdfDaImmagini(foto, nome: 'Prova', avanzamento: (f, tot) => passi.add('$f/$tot'));
+    // come la finestra vera: chi riceve l'avanzamento tiene oggetti che non possono passare a un altro isolate
+    final nonSpedibile = ValueNotifier<Completer<void>>(Completer<void>());
+    final percorso = await doc.pdfDaImmagini(foto, nome: 'Prova', avanzamento: (f, tot) {
+      nonSpedibile.value = Completer<void>();
+      passi.add('$f/$tot');
+    });
     await Future<void>.delayed(const Duration(milliseconds: 50));
     expect(passi, ['1/3', '2/3', '3/3']);
     final letto = PdfDocument(inputBytes: File(percorso).readAsBytesSync());
@@ -93,7 +98,10 @@ void main() {
     letto.dispose();
 
     final passiUnione = <String>[];
-    final uniti = await doc.unisci([percorso, percorso], avanzamento: (f, tot) => passiUnione.add('$f/$tot'));
+    final uniti = await doc.unisci([percorso, percorso], avanzamento: (f, tot) {
+      nonSpedibile.value = Completer<void>();
+      passiUnione.add('$f/$tot');
+    });
     await Future<void>.delayed(const Duration(milliseconds: 50));
     expect(passiUnione, ['1/2', '2/2']);
     final letti = PdfDocument(inputBytes: File(uniti).readAsBytesSync());

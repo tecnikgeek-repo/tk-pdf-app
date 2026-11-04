@@ -318,7 +318,10 @@ class _SchermataHomeState extends State<SchermataHome> {
 
   void _avviso(String testo) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(testo)));
+    // un errore tecnico può essere lunghissimo e coprire tutta la schermata: basta la prima riga
+    final riga = testo.split('\n').first;
+    final breve = riga.length > 160 ? '${riga.substring(0, 160)}…' : riga;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(breve)));
   }
 }
 

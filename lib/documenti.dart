@@ -52,7 +52,10 @@ Future<bool> salvaCopiaDove(String percorso) async {
 }
 
 /// Lavoro lungo fuori dal filo dello schermo, che racconta quanto ne ha fatto.
-/// [lavoro] sta in una funzione a parte: Isolate.run non può portarsi dietro [avanzamento].
+///
+/// Isolate.run si chiama SOLO da funzioni di primo livello che ricevono ciò che serve (_isolaPdf, _isolaUnione):
+/// una chiusura scritta dentro pdfDaImmagini o unisci si porterebbe dietro [avanzamento] e con lui tutta la
+/// finestra a schermo, e l'isolate rifiuterebbe il messaggio («object is unsendable»).
 Future<void> _conAvanzamento(
   Future<void> Function(SendPort) lavoro,
   void Function(int fatti)? avanzamento,
@@ -76,11 +79,17 @@ Future<String> pdfDaImmagini(
   final percorso = await percorsoLibero(nome);
   final totale = immagini.length;
   await _conAvanzamento(
-    (porta) => Isolate.run(() => _scriviPdfDaImmagini(immagini, percorso, porta)),
+    (porta) => _isolaPdf(immagini, percorso, porta),
     (fatte) => avanzamento?.call(fatte, totale),
   );
   return percorso;
 }
+
+Future<void> _isolaPdf(List<String> immagini, String uscita, SendPort porta) =>
+    Isolate.run(() => _scriviPdfDaImmagini(immagini, uscita, porta));
+
+Future<void> _isolaUnione(List<String> pdf, String uscita, SendPort porta) =>
+    Isolate.run(() => _scriviUnione(pdf, uscita, porta));
 
 Future<void> _scriviPdfDaImmagini(List<String> immagini, String uscita, SendPort porta) async {
   final doc = PdfDocument();
@@ -120,7 +129,7 @@ Future<String> unisci(
   final percorso = await percorsoLibero(nome);
   final totale = pdf.length;
   await _conAvanzamento(
-    (porta) => Isolate.run(() => _scriviUnione(pdf, percorso, porta)),
+    (porta) => _isolaUnione(pdf, percorso, porta),
     (fatti) => avanzamento?.call(fatti, totale),
   );
   return percorso;
