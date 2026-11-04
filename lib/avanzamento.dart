@@ -103,6 +103,6 @@ Future<void> chiediDoveSalvare(BuildContext context, String percorso, {bool avvi
       barra.showSnackBar(const SnackBar(content: Text('Non salvato altrove: il PDF resta in tk-pdf, tra i file recenti.')));
     }
   } catch (errore) {
-    barra.showSnackBar(SnackBar(content: Text('Non riesco a salvarlo lì: $errore')));
+    barra.showSnackBar(SnackBar(content: Text(fraseErrore('Non riesco a salvarlo in quella cartella: il PDF resta in tk-pdf, tra i file recenti.', errore))));
   }
 }

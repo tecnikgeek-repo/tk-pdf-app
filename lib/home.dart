@@ -300,7 +300,7 @@ class _SchermataHomeState extends State<SchermataHome> {
       await apriPdf(context, percorso);
       await _aggiorna();
     } catch (errore) {
-      _avviso('Non riuscito: $errore');
+      _avviso(fraseErrore('Il PDF non è stato creato.', errore));
     } finally {
       if (mounted) setState(() => _occupato = false);
     }
@@ -311,17 +311,14 @@ class _SchermataHomeState extends State<SchermataHome> {
     try {
       return await azione();
     } catch (errore) {
-      _avviso('Non riuscito: $errore');
+      _avviso(fraseErrore('Operazione non riuscita.', errore));
       return null;
     }
   }
 
   void _avviso(String testo) {
     if (!mounted) return;
-    // un errore tecnico può essere lunghissimo e coprire tutta la schermata: basta la prima riga
-    final riga = testo.split('\n').first;
-    final breve = riga.length > 160 ? '${riga.substring(0, 160)}…' : riga;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(breve)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(testo)));
   }
 }
 

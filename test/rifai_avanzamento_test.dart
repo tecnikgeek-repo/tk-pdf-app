@@ -109,6 +109,13 @@ void main() {
     letti.dispose();
   });
 
+  test('a schermo mai il testo tecnico dell\'errore', () {
+    final frase = fraseErrore('Il PDF non è stato creato.', ArgumentError('object is unsendable'));
+    expect(frase, startsWith('Il PDF non è stato creato.'));
+    expect(frase, isNot(contains('unsendable')));
+    expect(frase, isNot(contains('Invalid')));
+  });
+
   testWidgets('la finestra mostra la percentuale, che non torna indietro, e si chiude da sola', (t) async {
     late Avanzamento a;
     final fine = Completer<void>();

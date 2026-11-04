@@ -545,7 +545,7 @@ class _SchermataVisualizzaState extends State<SchermataVisualizza> {
       });
       await chiediDoveSalvare(context, nuovo);
     } catch (errore) {
-      barra.showSnackBar(SnackBar(content: Text('Riconoscimento non riuscito: $errore')));
+      barra.showSnackBar(SnackBar(content: Text(fraseErrore('Riconoscimento del testo non riuscito.', errore))));
     }
   }
 
@@ -581,7 +581,7 @@ class _SchermataVisualizzaState extends State<SchermataVisualizza> {
         await chiediDoveSalvare(context, risultato);
       }
     } catch (errore) {
-      barra.showSnackBar(SnackBar(content: Text('Non riuscito: $errore')));
+      barra.showSnackBar(SnackBar(content: Text(fraseErrore('Operazione non riuscita.', errore))));
     }
   }
 }

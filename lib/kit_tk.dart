@@ -4,6 +4,7 @@
 // Contiene: palette, tema, testata, card, pillole, bottoni, dialoghi, splash, Informazioni (software libero
 // AGPL-3.0, privacy, licenze e codice sorgente) e aggiornamenti.
 // Copyright (C) 2026 Pietro De Filippis (TecnikGeek) — AGPL-3.0-or-later, vedi COPYING
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' show Random;
@@ -44,6 +45,19 @@ const gradienteTestata = LinearGradient(colors: [navy, navy2, navy3]);
 /// Versione per il Play Store (`--dart-define=TK_PLAY=true`): niente aggiornamento da Dropbox (lo fa Play) e
 /// niente «Offrimi un caffè» (Play vuole i pagamenti dentro l'app solo con la sua fatturazione).
 const tkPlay = bool.fromEnvironment('TK_PLAY');
+
+/// La frase da mostrare quando qualcosa va storto. Il testo tecnico dell'errore NON va mai a schermo
+/// (regola per tutte le app TK): finisce solo nel registro. [cosa] dice cosa non è riuscito.
+String fraseErrore(String cosa, Object errore) {
+  debugPrint('$cosa $errore');
+  if (errore is FileSystemException && errore.osError?.errorCode == 28) {
+    return '$cosa Lo spazio sul telefono è finito: liberane un po\' e riprova.';
+  }
+  if (errore is SocketException || errore is TimeoutException || errore is HandshakeException) {
+    return '$cosa Controlla la connessione a Internet e riprova.';
+  }
+  return '$cosa Riprova: se succede ancora, chiudi e riapri l\'app.';
+}
 
 class ConfigTk {
   const ConfigTk({
@@ -1352,7 +1366,7 @@ Future<void> proponiAggiornamento(BuildContext context, {bool avvisaSeAggiornata
   try {
     novita = await cercaNovita();
   } catch (errore) {
-    if (context.mounted && avvisaSeAggiornata) avviso(context, 'Controllo non riuscito: $errore');
+    if (context.mounted && avvisaSeAggiornata) avviso(context, fraseErrore('Non sono riuscito a controllare gli aggiornamenti.', errore));
     return;
   }
   if (!context.mounted) return;
@@ -1396,7 +1410,7 @@ Future<void> proponiAggiornamento(BuildContext context, {bool avvisaSeAggiornata
   } catch (errore) {
     if (context.mounted) {
       Navigator.of(context).pop();
-      avviso(context, 'Aggiornamento non riuscito: $errore');
+      avviso(context, fraseErrore('Aggiornamento non riuscito.', errore));
     }
   }
 }
