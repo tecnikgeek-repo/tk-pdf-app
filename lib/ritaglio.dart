@@ -1,21 +1,41 @@
 // Ritaglio delle foto prima del PDF: per ogni foto propone i bordi della pagina trovati da soli
 // (bordi.dart) e si correggono trascinando i quattro angoli, con la lente sotto il dito.
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'bordi.dart';
 import 'tema.dart';
 
-/// Apre il ritaglio sulle foto. Restituisce gli angoli scelti per ogni foto (null = cercali da sé)
-/// oppure null se si esce senza confermare.
-Future<List<List<Punto>?>?> ritagliaFoto(BuildContext context, List<String> foto) =>
-    Navigator.of(context).push<List<List<Punto>?>>(
-      MaterialPageRoute(builder: (_) => SchermataRitaglio(foto: foto)),
+/// Quello che si è deciso nel ritaglio: le foto (alcune possono essere state rifatte)
+/// e gli angoli di ognuna (null = cercali da sé).
+class FotoRitagliate {
+  const FotoRitagliate(this.foto, this.angoli);
+  final List<String> foto;
+  final List<List<Punto>?> angoli;
+}
+
+/// Apre il ritaglio sulle foto. Null se si esce senza confermare.
+/// [rifai] procura la foto che sostituisce quella in vista (null = annullato).
+Future<FotoRitagliate?> ritagliaFoto(
+  BuildContext context,
+  List<String> foto, {
+  Future<String?> Function()? rifai,
+  String testoRifai = 'Rifai questa foto',
+}) =>
+    Navigator.of(context).push<FotoRitagliate>(
+      MaterialPageRoute(builder: (_) => SchermataRitaglio(foto: foto, rifai: rifai, testoRifai: testoRifai)),
     );
 
 /// Ritaglia e raddrizza le foto con gli angoli scelti. Una foto che non si riesce a leggere
 /// (formato strano) entra nel PDF così com'è, invece di far fallire tutto.
-Future<List<String>> applicaRitagli(List<String> foto, List<List<Punto>?> angoli) async {
+/// [avanzamento] riceve le foto fatte su quelle totali.
+Future<List<String>> applicaRitagli(
+  List<String> foto,
+  List<List<Punto>?> angoli, {
+  void Function(int fatte, int totale)? avanzamento,
+}) async {
   final cartella = (await getTemporaryDirectory()).path;
   final pronte = <String>[];
   for (var i = 0; i < foto.length; i++) {
@@ -24,14 +44,23 @@ Future<List<String>> applicaRitagli(List<String> foto, List<List<Punto>?> angoli
     } catch (_) {
       pronte.add(foto[i]);
     }
+    avanzamento?.call(i + 1, foto.length);
   }
   return pronte;
 }
 
 class SchermataRitaglio extends StatefulWidget {
-  const SchermataRitaglio({super.key, required this.foto, this.prepara = preparaFoto});
+  const SchermataRitaglio({
+    super.key,
+    required this.foto,
+    this.prepara = preparaFoto,
+    this.rifai,
+    this.testoRifai = 'Rifai questa foto',
+  });
 
   final List<String> foto;
+  final Future<String?> Function()? rifai;
+  final String testoRifai;
 
   /// Chi legge la foto e cerca i bordi (il banco di prova ne passa uno finto).
   final Future<FotoPronta> Function(String percorso) prepara;
@@ -44,6 +73,7 @@ class _SchermataRitaglioState extends State<SchermataRitaglio> {
   final Map<int, FotoPronta> _pronte = {};
   final Map<int, Object> _errori = {};
   final Set<int> _avviate = {};
+  late final List<String> _foto = [...widget.foto];
   late final List<List<Punto>?> _scelte = List.filled(widget.foto.length, null);
   var _indice = 0;
   List<Punto>? _angoli;
@@ -63,14 +93,16 @@ class _SchermataRitaglioState extends State<SchermataRitaglio> {
     _angoli = _scelte[i] ?? _pronte[i]?.bordi ?? (_pronte.containsKey(i) ? angoliTuttaFoto : null);
     for (final j in [i, i + 1]) {
       if (j >= _totale || !_avviate.add(j)) continue;
-      widget.prepara(widget.foto[j]).then((pronta) {
-        if (!mounted) return;
+      final percorso = _foto[j];
+      widget.prepara(percorso).then((pronta) {
+        // se nel frattempo la foto è stata rifatta, questa lettura non serve più
+        if (!mounted || _foto[j] != percorso) return;
         setState(() {
           _pronte[j] = pronta;
           if (j == _indice && _angoli == null) _angoli = pronta.bordi ?? angoliTuttaFoto;
         });
       }, onError: (Object errore) {
-        if (mounted) setState(() => _errori[j] = errore);
+        if (mounted && _foto[j] == percorso) setState(() => _errori[j] = errore);
       });
     }
   }
@@ -89,7 +121,7 @@ class _SchermataRitaglioState extends State<SchermataRitaglio> {
       _scelte[_indice] = angoli;
     }
     if (_ultima) {
-      Navigator.of(context).pop(_scelte);
+      Navigator.of(context).pop(FotoRitagliate(_foto, _scelte));
     } else {
       setState(() => _mostra(_indice + 1));
     }
@@ -99,12 +131,35 @@ class _SchermataRitaglioState extends State<SchermataRitaglio> {
   void _automaticoPerLeRestanti() {
     final angoli = _angoli;
     if (angoli != null && _convesso(angoli)) _scelte[_indice] = angoli;
-    Navigator.of(context).pop(_scelte);
+    Navigator.of(context).pop(FotoRitagliate(_foto, _scelte));
+  }
+
+  /// Passa a un'altra foto senza perdere la correzione fatta su questa.
+  void _vai(int i) {
+    if (i == _indice) return;
+    final angoli = _angoli;
+    if (angoli != null && _convesso(angoli)) _scelte[_indice] = angoli;
+    setState(() => _mostra(i));
+  }
+
+  /// Sostituisce la foto in vista, le altre restano come sono.
+  Future<void> _rifaiFoto() async {
+    final i = _indice;
+    final nuova = await widget.rifai!();
+    if (nuova == null || !mounted) return;
+    setState(() {
+      _foto[i] = nuova;
+      _scelte[i] = null;
+      _pronte.remove(i);
+      _errori.remove(i);
+      _avviate.remove(i);
+      _mostra(i);
+    });
   }
 
   Future<void> _indietro() async {
     if (_indice > 0) {
-      setState(() => _mostra(_indice - 1));
+      _vai(_indice - 1);
       return;
     }
     final esci = await showDialog<bool>(
@@ -147,12 +202,13 @@ class _SchermataRitaglioState extends State<SchermataRitaglio> {
                   : pronta == null || angoli == null
                       ? const _Messaggio(testo: 'Cerco i bordi della pagina…', attesa: true)
                       : _EditorAngoli(
-                          key: ValueKey(_indice),
+                          key: ValueKey(_foto[_indice]),
                           foto: pronta,
                           angoli: angoli,
                           onCambio: (nuovi) => setState(() => _angoli = nuovi),
                         ),
             ),
+            if (_totale > 1) _StrisciaFoto(foto: _foto, scelta: _indice, onScelta: _vai),
             _barraComandi(pronta, errore),
           ],
         ),
@@ -201,6 +257,13 @@ class _SchermataRitaglioState extends State<SchermataRitaglio> {
                 ),
               ],
             ),
+          if (widget.rifai != null) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: _BottoneScuro(icona: Icons.photo_camera_outlined, testo: widget.testoRifai, onTap: _rifaiFoto),
+            ),
+          ],
           const SizedBox(height: 8),
           FilledButton.icon(
             onPressed: pronto ? _avanti : null,
@@ -216,6 +279,61 @@ class _SchermataRitaglioState extends State<SchermataRitaglio> {
                   : 'Crea il PDF, le altre $restanti foto le ritaglio da solo'),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Tutte le foto in fila: se ne tocca una per tornarci, anche in mezzo alle altre.
+class _StrisciaFoto extends StatelessWidget {
+  const _StrisciaFoto({required this.foto, required this.scelta, required this.onScelta});
+
+  final List<String> foto;
+  final int scelta;
+  final ValueChanged<int> onScelta;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: navy2,
+      height: 72,
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 0),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: foto.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 6),
+        itemBuilder: (_, i) => GestureDetector(
+          onTap: () => onScelta(i),
+          child: Container(
+            width: 48,
+            decoration: BoxDecoration(
+              color: navy3,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: i == scelta ? accento : Colors.transparent, width: 2.5),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.file(
+                  File(foto[i]),
+                  key: ValueKey(foto[i]),
+                  cacheWidth: 120,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: Container(
+                    color: Colors.black54,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontSize: 11)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -1,7 +1,7 @@
 name: tkpdf
 description: "tk-pdf per Android e iPhone: lettore ed editor PDF, software libero AGPL-3.0."
 publish_to: 'none'
-version: 1.7.6+23
+version: 1.7.7+24
 
 environment:
   sdk: ^3.13.4
@@ -31,6 +31,8 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
+  path_provider_platform_interface: ^2.1.3
+  plugin_platform_interface: ^2.1.8
 
 flutter:
   uses-material-design: true
