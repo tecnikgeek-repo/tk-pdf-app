@@ -160,7 +160,7 @@ class _SchermataPagineState extends State<SchermataPagine> {
       Navigator.of(context).pop(true);
     } catch (errore) {
       barra.hideCurrentSnackBar();
-      barra.showSnackBar(SnackBar(content: Text('Non riuscito: $errore')));
+      barra.showSnackBar(SnackBar(content: Text(fraseErrore('Pagine non salvate.', errore))));
     }
   }
 }

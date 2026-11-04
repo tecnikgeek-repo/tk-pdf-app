@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pdfrx/pdfrx.dart' as rx;
 
+import 'avanzamento.dart';
 import 'documenti.dart' as doc;
 import 'recenti.dart';
 import 'ritaglio.dart';
@@ -218,7 +219,21 @@ class _SchermataHomeState extends State<SchermataHome> {
           scannerSource: sorgente,
         ));
     if (immagini == null || immagini.isEmpty) return;
-    await _ritagliaECrea(immagini, 'Scansione');
+    await _ritagliaECrea(immagini, 'Scansione', _rifaiConScanner, 'Rifai questa foto');
+  }
+
+  /// Una foto sola al posto di quella sbagliata, con lo stesso scanner.
+  Future<String?> _rifaiConScanner() async {
+    final nuove = await _protetto(() => CunningDocumentScanner.getPictures(
+          noOfPages: 1,
+          scannerSource: ScannerSource.camera,
+        ));
+    return nuove == null || nuove.isEmpty ? null : nuove.first;
+  }
+
+  Future<String?> _cambiaDallaGalleria() async {
+    final scelta = await _protetto(() => ImagePicker().pickImage(source: ImageSource.gallery));
+    return scelta?.path;
   }
 
   Future<ScannerSource?> _sceltaSorgente() {
@@ -247,7 +262,7 @@ class _SchermataHomeState extends State<SchermataHome> {
   Future<void> _daFoto() async {
     final scelte = await _protetto(() => ImagePicker().pickMultiImage());
     if (scelte == null || scelte.isEmpty) return;
-    await _ritagliaECrea(scelte.map((x) => x.path).toList(), 'Foto');
+    await _ritagliaECrea(scelte.map((x) => x.path).toList(), 'Foto', _cambiaDallaGalleria, 'Cambia questa foto');
   }
 
   Future<void> _apri() async {
@@ -272,31 +287,46 @@ class _SchermataHomeState extends State<SchermataHome> {
       _avviso('Scegli almeno due PDF da unire.');
       return;
     }
-    await _lavora('Unisco i file…', () => doc.unisci(file));
+    await _lavora(
+        'Unisco i file',
+        (a) => doc.unisci(file, avanzamento: (fatti, totale) {
+              a.segna(0.95 * fatti / totale, fatti < totale ? 'File ${fatti + 1} di $totale' : 'Scrivo il PDF…');
+            }));
   }
 
   /// Prima il ritaglio (bordi trovati da soli, correggibili), poi il PDF.
-  Future<void> _ritagliaECrea(List<String> immagini, String nome) async {
+  Future<void> _ritagliaECrea(
+    List<String> immagini,
+    String nome,
+    Future<String?> Function() rifai,
+    String testoRifai,
+  ) async {
     if (!mounted) return;
-    final angoli = await ritagliaFoto(context, immagini);
-    if (angoli == null || !mounted) return;
-    await _lavora('Ritaglio le pagine e creo il PDF…',
-        () async => doc.pdfDaImmagini(await applicaRitagli(immagini, angoli), nome: nome));
+    final scelte = await ritagliaFoto(context, immagini, rifai: rifai, testoRifai: testoRifai);
+    if (scelte == null || !mounted) return;
+    await _lavora('Creo il PDF', (a) async {
+      a.segna(0, 'Ritaglio la foto 1 di ${scelte.foto.length}');
+      final pronte = await applicaRitagli(scelte.foto, scelte.angoli, avanzamento: (fatte, totale) {
+        a.segna(0.8 * fatte / totale, fatte < totale ? 'Ritaglio la foto ${fatte + 1} di $totale' : 'Creo le pagine…');
+      });
+      return doc.pdfDaImmagini(pronte, nome: nome, avanzamento: (fatte, totale) {
+        a.segna(0.8 + 0.15 * fatte / totale, fatte < totale ? 'Pagina ${fatte + 1} di $totale' : 'Scrivo il PDF…');
+      });
+    });
   }
 
-  Future<void> _lavora(String messaggio, Future<String> Function() azione) async {
+  /// Fa il lavoro con la percentuale a schermo, poi chiede dove salvare e apre il PDF.
+  Future<void> _lavora(String titolo, Future<String> Function(Avanzamento) azione) async {
     setState(() => _occupato = true);
-    final barra = ScaffoldMessenger.of(context);
-    barra.showSnackBar(SnackBar(content: Text(messaggio), duration: const Duration(seconds: 30)));
     try {
-      final percorso = await azione();
-      barra.hideCurrentSnackBar();
+      final percorso = await conAvanzamento(context, titolo, azione);
+      if (!mounted) return;
+      await chiediDoveSalvare(context, percorso);
       if (!mounted) return;
       await apriPdf(context, percorso);
       await _aggiorna();
     } catch (errore) {
-      barra.hideCurrentSnackBar();
-      _avviso('Non riuscito: $errore');
+      _avviso(fraseErrore('Il PDF non è stato creato.', errore));
     } finally {
       if (mounted) setState(() => _occupato = false);
     }
@@ -307,7 +337,7 @@ class _SchermataHomeState extends State<SchermataHome> {
     try {
       return await azione();
     } catch (errore) {
-      _avviso('Non riuscito: $errore');
+      _avviso(fraseErrore('Operazione non riuscita.', errore));
       return null;
     }
   }

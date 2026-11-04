@@ -7,6 +7,7 @@ import 'package:pdfrx/pdfrx.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'annota.dart';
+import 'avanzamento.dart';
 import 'documenti.dart' as doc;
 import 'modifica_testo.dart';
 import 'pagine.dart';
@@ -184,6 +185,7 @@ class _SchermataVisualizzaState extends State<SchermataVisualizza> {
               attivo: _strumento == Strumento.nessuno,
               onTap: () => _scegli(Strumento.nessuno)),
           BottoneStrumento(testo: 'Condividi', icona: Icons.ios_share, onTap: _condividi),
+          BottoneStrumento(testo: 'Salva una copia', icona: Icons.save_alt, onTap: _salvaCopia),
         ]);
     }
   }
@@ -433,6 +435,8 @@ class _SchermataVisualizzaState extends State<SchermataVisualizza> {
     await SharePlus.instance.share(ShareParams(files: [XFile(_percorso)], title: nomeFile(_percorso)));
   }
 
+  Future<void> _salvaCopia() => chiediDoveSalvare(context, _percorso, avvisaSeAnnulli: false);
+
   void _menu() {
     showModalBottomSheet<void>(
       context: context,
@@ -441,6 +445,14 @@ class _SchermataVisualizzaState extends State<SchermataVisualizza> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            ListTile(
+              leading: const Icon(Icons.save_alt),
+              title: const Text('Salva una copia dove vuoi'),
+              onTap: () {
+                Navigator.pop(context);
+                _salvaCopia();
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.auto_awesome_motion_outlined),
               title: const Text('Gestisci pagine (riordina, ruota, elimina)'),
@@ -512,15 +524,14 @@ class _SchermataVisualizzaState extends State<SchermataVisualizza> {
 
   Future<void> _riconosciTesto() async {
     final barra = ScaffoldMessenger.of(context);
-    barra.showSnackBar(const SnackBar(content: Text('Riconosco il testo…'), duration: Duration(minutes: 5)));
     try {
-      final nuovo = await rendiTestoModificabile(_percorso, avanzamento: (pagina, totale) {
-        barra.hideCurrentSnackBar();
-        barra.showSnackBar(SnackBar(
-            content: Text('Riconosco il testo: pagina $pagina di $totale'),
-            duration: const Duration(minutes: 5)));
-      });
-      barra.hideCurrentSnackBar();
+      final nuovo = await conAvanzamento(
+        context,
+        'Riconosco il testo',
+        (a) => rendiTestoModificabile(_percorso, avanzamento: (pagina, totale) {
+          a.segna((pagina - 1) / totale, 'Pagina $pagina di $totale');
+        }),
+      );
       if (!mounted) return;
       if (nuovo == null) {
         barra.showSnackBar(const SnackBar(content: Text('Nessuna scritta da riconoscere: le pagine hanno già testo.')));
@@ -532,10 +543,9 @@ class _SchermataVisualizzaState extends State<SchermataVisualizza> {
         _percorso = nuovo;
         _chiave = UniqueKey();
       });
-      barra.showSnackBar(SnackBar(content: Text('Testo riconosciuto: ${nomeFile(nuovo)}')));
+      await chiediDoveSalvare(context, nuovo);
     } catch (errore) {
-      barra.hideCurrentSnackBar();
-      barra.showSnackBar(SnackBar(content: Text('Riconoscimento non riuscito: $errore')));
+      barra.showSnackBar(SnackBar(content: Text(fraseErrore('Riconoscimento del testo non riuscito.', errore))));
     }
   }
 
@@ -553,10 +563,9 @@ class _SchermataVisualizzaState extends State<SchermataVisualizza> {
 
   Future<void> _lavora(String messaggio, Future<String> Function() azione, {bool ricarica = false}) async {
     final barra = ScaffoldMessenger.of(context);
-    barra.showSnackBar(SnackBar(content: Text(messaggio), duration: const Duration(seconds: 30)));
     try {
-      final risultato = await azione();
-      barra.hideCurrentSnackBar();
+      // qui la libreria non dice a che punto è: barra in movimento, senza inventare una percentuale
+      final risultato = await conAvanzamento(context, messaggio, (_) => azione());
       if (!mounted) return;
       if (ricarica) {
         await _ricarica();
@@ -569,11 +578,10 @@ class _SchermataVisualizzaState extends State<SchermataVisualizza> {
           _percorso = risultato;
           _chiave = UniqueKey();
         });
-        barra.showSnackBar(SnackBar(content: Text('Salvato: ${nomeFile(risultato)}')));
+        await chiediDoveSalvare(context, risultato);
       }
     } catch (errore) {
-      barra.hideCurrentSnackBar();
-      barra.showSnackBar(SnackBar(content: Text('Non riuscito: $errore')));
+      barra.showSnackBar(SnackBar(content: Text(fraseErrore('Operazione non riuscita.', errore))));
     }
   }
 }

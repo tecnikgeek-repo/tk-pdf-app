@@ -1,8 +1,10 @@
 // Operazioni sui PDF: creazione da foto, unisci, ruota, elimina pagine, password, compressione.
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 import 'dart:ui' show Offset, Rect;
 
+import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
@@ -37,13 +39,64 @@ Future<String> percorsoLibero(String nomeSenzaEstensione, {String estensione = '
   return tentativo;
 }
 
+/// Fa scegliere al sistema dove salvare una copia del PDF (cartella e nome).
+/// Vero se è stata salvata, falso se si è annullato.
+Future<bool> salvaCopiaDove(String percorso) async {
+  final dove = await FilePicker.saveFile(
+    fileName: percorso.split(Platform.pathSeparator).last.split('/').last,
+    bytes: await File(percorso).readAsBytes(),
+    mimeType: 'application/pdf',
+    dialogTitle: 'Dove vuoi salvare il PDF?',
+  );
+  return dove != null;
+}
+
+/// Lavoro lungo fuori dal filo dello schermo, che racconta quanto ne ha fatto.
+///
+/// Isolate.run si chiama SOLO da funzioni di primo livello che ricevono ciò che serve (_isolaPdf, _isolaUnione):
+/// una chiusura scritta dentro pdfDaImmagini o unisci si porterebbe dietro [avanzamento] e con lui tutta la
+/// finestra a schermo, e l'isolate rifiuterebbe il messaggio («object is unsendable»).
+Future<void> _conAvanzamento(
+  Future<void> Function(SendPort) lavoro,
+  void Function(int fatti)? avanzamento,
+) async {
+  final ricevi = ReceivePort();
+  ricevi.listen((fatti) => avanzamento?.call(fatti as int));
+  try {
+    await lavoro(ricevi.sendPort);
+  } finally {
+    ricevi.close();
+  }
+}
+
 /// PDF da una lista di immagini: una pagina per foto, adattata al foglio.
-Future<String> pdfDaImmagini(List<String> immagini, {String nome = 'Scansione'}) async {
+/// [avanzamento] riceve le pagine fatte su quelle totali.
+Future<String> pdfDaImmagini(
+  List<String> immagini, {
+  String nome = 'Scansione',
+  void Function(int fatte, int totale)? avanzamento,
+}) async {
+  final percorso = await percorsoLibero(nome);
+  final totale = immagini.length;
+  await _conAvanzamento(
+    (porta) => _isolaPdf(immagini, percorso, porta),
+    (fatte) => avanzamento?.call(fatte, totale),
+  );
+  return percorso;
+}
+
+Future<void> _isolaPdf(List<String> immagini, String uscita, SendPort porta) =>
+    Isolate.run(() => _scriviPdfDaImmagini(immagini, uscita, porta));
+
+Future<void> _isolaUnione(List<String> pdf, String uscita, SendPort porta) =>
+    Isolate.run(() => _scriviUnione(pdf, uscita, porta));
+
+Future<void> _scriviPdfDaImmagini(List<String> immagini, String uscita, SendPort porta) async {
   final doc = PdfDocument();
   doc.pageSettings.margins.all = 0;
   try {
-    for (final percorso in immagini) {
-      final byte = await File(percorso).readAsBytes();
+    for (var i = 0; i < immagini.length; i++) {
+      final byte = await File(immagini[i]).readAsBytes();
       final immagine = PdfBitmap(byte);
       final orizzontale = immagine.width > immagine.height;
       doc.pageSettings.orientation =
@@ -59,24 +112,40 @@ Future<String> pdfDaImmagini(List<String> immagini, {String nome = 'Scansione'})
         immagine,
         Rect.fromLTWH((area.width - larghezza) / 2, (area.height - altezza) / 2, larghezza, altezza),
       );
+      porta.send(i + 1);
     }
-    return await _salva(doc, nome);
+    await File(uscita).writeAsBytes(await doc.save(), flush: true);
   } finally {
     doc.dispose();
   }
 }
 
-/// Unisce più PDF in uno solo.
-Future<String> unisci(List<String> pdf, {String nome = 'Uniti'}) async {
+/// Unisce più PDF in uno solo. [avanzamento] riceve i file fatti su quelli totali.
+Future<String> unisci(
+  List<String> pdf, {
+  String nome = 'Uniti',
+  void Function(int fatti, int totale)? avanzamento,
+}) async {
+  final percorso = await percorsoLibero(nome);
+  final totale = pdf.length;
+  await _conAvanzamento(
+    (porta) => _isolaUnione(pdf, percorso, porta),
+    (fatti) => avanzamento?.call(fatti, totale),
+  );
+  return percorso;
+}
+
+Future<void> _scriviUnione(List<String> pdf, String uscita, SendPort porta) async {
   final out = PdfDocument();
   out.pageSettings.margins.all = 0;
   try {
-    for (final percorso in pdf) {
-      final src = PdfDocument(inputBytes: await File(percorso).readAsBytes());
+    for (var i = 0; i < pdf.length; i++) {
+      final src = PdfDocument(inputBytes: await File(pdf[i]).readAsBytes());
       _copiaPagine(src, out);
       src.dispose();
+      porta.send(i + 1);
     }
-    return await _salva(out, nome);
+    await File(uscita).writeAsBytes(await out.save(), flush: true);
   } finally {
     out.dispose();
   }
